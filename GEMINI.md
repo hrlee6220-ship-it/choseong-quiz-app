@@ -5,6 +5,7 @@
 - **Supabase Project Ref**: `zkdieqroarofjohoyibi`
 - **Supabase Organization**: `wrkondnhupyzmbqwzytp`
 - **Vercel Project Name**: `choseong-quiz-app`
+- **Vercel Project ID**: `prj_GvYltPpByshEAdZunMaf1iWGFbWL`
 - **Vercel Org ID**: `team_yWd0c945tvnoEkYlR89BI78u`
 
 ## DoRms 연수 규칙

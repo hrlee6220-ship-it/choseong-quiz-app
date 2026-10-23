@@ -22,4 +22,6 @@
 - **Supabase Project Ref**: `zkdieqroarofjohoyibi`
 - **Supabase Organization**: `wrkondnhupyzmbqwzytp` (hrlee6220-ship-it's Org)
 - **Vercel Project Name**: `choseong-quiz-app`
-- **Vercel Scope/Team**: `hrlee6220-ship-it` (`team_yWd0c945tvnoEkYlR89BI78u`)
+- **Vercel Project ID**: `prj_GvYltPpByshEAdZunMaf1iWGFbWL`
+- **Vercel Org ID**: `team_yWd0c945tvnoEkYlR89BI78u`
+- **Vercel Scope/Team**: `hrlee6220-ship-it`
