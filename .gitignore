@@ -36,3 +36,6 @@ next-env.d.ts
 # dorms-check
 .dorms-check
 dorms-check.config.json
+
+.vercel
+.env*
