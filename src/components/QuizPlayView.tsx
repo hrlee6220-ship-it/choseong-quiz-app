@@ -61,7 +61,7 @@ export default function QuizPlayView({
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showWordListModal, setShowWordListModal] = useState(false);
-  const [showScoreboard, setShowScoreboard] = useState(false);
+  const [showScoreboard, setShowScoreboard] = useState(true);
   const [solvedIndices, setSolvedIndices] = useState<Set<number>>(new Set());
   const [teams, setTeams] = useState<TeamScore[]>([
     { id: 1, name: "1모둠", score: 0 },
@@ -71,6 +71,22 @@ export default function QuizPlayView({
     { id: 5, name: "5모둠", score: 0 },
     { id: 6, name: "6모둠", score: 0 },
   ]);
+
+  // 모둠 수 조절 (최소 2모둠 ~ 최대 12모둠, 기존 점수 유지)
+  const handleChangeTeamCount = useCallback((nextCount: number) => {
+    const clamped = Math.max(2, Math.min(12, nextCount));
+    setTeams((prev) => {
+      if (clamped === prev.length) return prev;
+      if (clamped < prev.length) {
+        return prev.slice(0, clamped);
+      }
+      const added: TeamScore[] = [...prev];
+      for (let i = prev.length + 1; i <= clamped; i++) {
+        added.push({ id: i, name: `${i}모둠`, score: 0 });
+      }
+      return added;
+    });
+  }, []);
 
   // 세트 변경 시 자동 랜덤 셔플 초기화
   useEffect(() => {
@@ -389,183 +405,242 @@ export default function QuizPlayView({
         </div>
       </header>
 
-      {/* 중앙 메인 퀴즈 스테이지 */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-6 max-w-7xl w-full mx-auto">
-        {/* 상단 문제 번호 및 힌트 상태 배지 */}
-        <div className="w-full flex flex-wrap items-center justify-between gap-3 mb-6">
-          <div className="flex items-center gap-3">
-            <span className="px-4 py-2 rounded-2xl bg-indigo-600 text-white font-black text-lg sm:text-2xl shadow-md">
-              문제 {currentIndex + 1} <span className="text-indigo-200 font-semibold text-base">/ {shuffledWords.length}</span>
-            </span>
-            <span className="px-3.5 py-1.5 rounded-xl bg-white/90 border border-slate-200 text-slate-600 font-bold text-sm sm:text-base shadow-sm">
-              {activeSet.category} · 총 {hangulCharIndices.length}글자
-              {wordGroups.length > 1 ? ` (${wordGroups.length}어절)` : ""}
-            </span>
-          </div>
+      {/* 중앙 메인 퀴즈 스테이지 (좌측/중앙: 퀴즈 보드, 우측: 세로형 모둠 점수판) */}
+      <main className="flex-1 flex flex-col lg:flex-row items-stretch justify-center gap-5 px-4 sm:px-8 py-5 max-w-[92rem] w-full mx-auto">
+        {/* 좌측/중앙: 문제 상태 배지 + 메인 초성 카드 보드 */}
+        <div className="flex-1 flex flex-col justify-center min-w-0">
+          {/* 상단 문제 번호 및 힌트 상태 배지 */}
+          <div className="w-full flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <span className="px-4 py-2 rounded-2xl bg-indigo-600 text-white font-black text-lg sm:text-2xl shadow-md">
+                문제 {currentIndex + 1}{" "}
+                <span className="text-indigo-200 font-semibold text-base">
+                  / {shuffledWords.length}
+                </span>
+              </span>
+              <span className="px-3.5 py-1.5 rounded-xl bg-white/90 border border-slate-200 text-slate-600 font-bold text-sm sm:text-base shadow-sm">
+                {activeSet.category} · 총 {hangulCharIndices.length}글자
+                {wordGroups.length > 1 ? ` (${wordGroups.length}어절)` : ""}
+              </span>
+            </div>
 
-          {/* 현재 활성화된 힌트 상태 표시 배지 */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-extrabold border flex items-center gap-1.5 transition ${
-                showHint1Batchim
-                  ? "bg-amber-100 text-amber-900 border-amber-300 shadow-sm"
-                  : "bg-white/70 text-slate-400 border-slate-200"
-              }`}
-            >
-              <Layers className="w-4 h-4" />
-              1차 힌트(받침): {showHint1Batchim ? "켜짐" : "꺼짐"}
-            </span>
-
-            <span
-              className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-extrabold border flex items-center gap-1.5 transition ${
-                revealedCharIndices.size > 0
-                  ? "bg-sky-100 text-sky-900 border-sky-300 shadow-sm"
-                  : hint2GuidePulse
-                  ? "bg-sky-50 text-sky-800 border-sky-300 animate-pulse"
-                  : "bg-white/70 text-slate-500 border-slate-200"
-              }`}
-            >
-              <MousePointerClick className="w-4 h-4 text-sky-600" />
-              2차 힌트(글자 클릭): {revealedCharIndices.size}글자 열림
-            </span>
-          </div>
-        </div>
-
-        {/* 메인 초성 카드 보드 */}
-        <div className="w-full bg-white/85 backdrop-blur-md rounded-[2.25rem] border-2 border-indigo-100 shadow-xl p-6 sm:p-10 md:p-14 flex flex-col items-center justify-center min-h-[22rem] sm:min-h-[26rem] relative overflow-hidden">
-          {/* 어절 그룹별 글자 카드 렌더링 (네모칸 안에 부가 설명 없이 글자 요소만 깔끔하게 표시) */}
-          <div className="flex flex-wrap items-center justify-center gap-x-8 sm:gap-x-12 gap-y-6 w-full py-4">
-            {wordGroups.map((group) => (
-              <div
-                key={group.wordIndex}
-                className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-4"
+            {/* 현재 활성화된 힌트 상태 표시 배지 */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-extrabold border flex items-center gap-1.5 transition ${
+                  showHint1Batchim
+                    ? "bg-amber-100 text-amber-900 border-amber-300 shadow-sm"
+                    : "bg-white/70 text-slate-400 border-slate-200"
+                }`}
               >
-                {group.chars.map((ch) => {
-                  const isCharRevealed =
-                    isAnswerRevealed || revealedCharIndices.has(ch.index) || !ch.isHangul;
+                <Layers className="w-4 h-4" />
+                1차 힌트(받침): {showHint1Batchim ? "켜짐" : "꺼짐"}
+              </span>
 
-                  return (
-                    <button
-                      key={ch.index}
-                      type="button"
-                      onClick={() => handleToggleCharReveal(ch.index)}
-                      disabled={isAnswerRevealed || !ch.isHangul}
-                      aria-label={`${ch.index + 1}번째 글자`}
-                      className={`${cardSizeClass} rounded-3xl border-4 flex flex-col items-center justify-center p-2 transition-all duration-200 relative shadow-md ${
-                        isAnswerRevealed
-                          ? "bg-gradient-to-b from-emerald-500 to-teal-600 border-emerald-300 text-white scale-105 shadow-emerald-200/80 shadow-xl"
-                          : revealedCharIndices.has(ch.index)
-                          ? "bg-gradient-to-b from-sky-500 to-indigo-600 border-sky-300 text-white scale-105 shadow-sky-200/80 shadow-xl cursor-pointer"
-                          : showHint1Batchim
-                          ? "bg-white hover:bg-amber-50/70 border-amber-300 text-slate-900 hover:-translate-y-1 hover:shadow-lg cursor-pointer"
-                          : "bg-white hover:bg-indigo-50/70 border-indigo-200 text-slate-900 hover:-translate-y-1 hover:shadow-lg cursor-pointer"
-                      }`}
-                    >
-                      {isCharRevealed ? (
-                        /* 정답 공개 또는 2차 힌트(선택한 글자 모음까지 전체 공개) */
-                        <span
-                          className={`${choseongFontClass} font-black leading-none tracking-tight drop-shadow-sm`}
-                        >
-                          {ch.original}
-                        </span>
-                      ) : showHint1Batchim ? (
-                        /* 1차 힌트: 부가 설명 없이 실제 글자 모양처럼 위에는 초성, 아래에는 받침 배치 */
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 sm:gap-1">
+              <span
+                className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-extrabold border flex items-center gap-1.5 transition ${
+                  revealedCharIndices.size > 0
+                    ? "bg-sky-100 text-sky-900 border-sky-300 shadow-sm"
+                    : hint2GuidePulse
+                    ? "bg-sky-50 text-sky-800 border-sky-300 animate-pulse"
+                    : "bg-white/70 text-slate-500 border-slate-200"
+                }`}
+              >
+                <MousePointerClick className="w-4 h-4 text-sky-600" />
+                2차 힌트(글자 클릭): {revealedCharIndices.size}글자 열림
+              </span>
+            </div>
+          </div>
+
+          {/* 메인 초성 카드 보드 */}
+          <div className="flex-1 w-full bg-white/85 backdrop-blur-md rounded-[2.25rem] border-2 border-indigo-100 shadow-xl p-6 sm:p-10 md:p-12 flex flex-col items-center justify-center min-h-[22rem] sm:min-h-[26rem] relative overflow-hidden">
+            {/* 어절 그룹별 글자 카드 렌더링 (네모칸 안에 부가 설명 없이 글자 요소만 깔끔하게 표시) */}
+            <div className="flex flex-wrap items-center justify-center gap-x-8 sm:gap-x-12 gap-y-6 w-full py-4">
+              {wordGroups.map((group) => (
+                <div
+                  key={group.wordIndex}
+                  className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-4"
+                >
+                  {group.chars.map((ch) => {
+                    const isCharRevealed =
+                      isAnswerRevealed || revealedCharIndices.has(ch.index) || !ch.isHangul;
+
+                    return (
+                      <button
+                        key={ch.index}
+                        type="button"
+                        onClick={() => handleToggleCharReveal(ch.index)}
+                        disabled={isAnswerRevealed || !ch.isHangul}
+                        aria-label={`${ch.index + 1}번째 글자`}
+                        className={`${cardSizeClass} rounded-3xl border-4 flex flex-col items-center justify-center p-2 transition-all duration-200 relative shadow-md ${
+                          isAnswerRevealed
+                            ? "bg-gradient-to-b from-emerald-500 to-teal-600 border-emerald-300 text-white scale-105 shadow-emerald-200/80 shadow-xl"
+                            : revealedCharIndices.has(ch.index)
+                            ? "bg-gradient-to-b from-sky-500 to-indigo-600 border-sky-300 text-white scale-105 shadow-sky-200/80 shadow-xl cursor-pointer"
+                            : showHint1Batchim
+                            ? "bg-white hover:bg-amber-50/70 border-amber-300 text-slate-900 hover:-translate-y-1 hover:shadow-lg cursor-pointer"
+                            : "bg-white hover:bg-indigo-50/70 border-indigo-200 text-slate-900 hover:-translate-y-1 hover:shadow-lg cursor-pointer"
+                        }`}
+                      >
+                        {isCharRevealed ? (
+                          /* 정답 공개 또는 2차 힌트(선택한 글자 모음까지 전체 공개) */
                           <span
-                            className={`${stackedFontClass} font-black text-indigo-950 leading-none`}
+                            className={`${choseongFontClass} font-black leading-none tracking-tight drop-shadow-sm`}
+                          >
+                            {ch.original}
+                          </span>
+                        ) : showHint1Batchim ? (
+                          /* 1차 힌트: 부가 설명 없이 실제 글자 모양처럼 위에는 초성, 아래에는 받침 배치 */
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 sm:gap-1">
+                            <span
+                              className={`${stackedFontClass} font-black text-indigo-950 leading-none`}
+                            >
+                              {ch.choseong}
+                            </span>
+                            <span
+                              className={`${stackedFontClass} font-black text-amber-600 leading-none min-h-[1em] flex items-center justify-center`}
+                            >
+                              {ch.hasBatchim ? ch.jongseong : ""}
+                            </span>
+                          </div>
+                        ) : (
+                          /* 기본 상태: 오직 초성만 깔끔하게 표시 */
+                          <span
+                            className={`${choseongFontClass} font-black text-indigo-950 leading-none`}
                           >
                             {ch.choseong}
                           </span>
-                          <span
-                            className={`${stackedFontClass} font-black text-amber-600 leading-none min-h-[1em] flex items-center justify-center`}
-                          >
-                            {ch.hasBatchim ? ch.jongseong : ""}
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {/* 정답 공개 시 하단에 전체 문장 한 줄 요약 배너 */}
+            {isAnswerRevealed && (
+              <div className="mt-8 px-8 py-4 rounded-2xl bg-emerald-900 text-white font-black text-2xl sm:text-4xl tracking-wide shadow-lg text-center">
+                {currentWord}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 우측: 세로형 교실 모둠 점수판 (퀴즈를 풀면서 실시간 점수 반영 및 모둠 수 조절) */}
+        {showScoreboard && (
+          <aside className="w-full lg:w-72 xl:w-80 shrink-0 bg-white/95 backdrop-blur-md rounded-[2rem] border-2 border-emerald-200 p-4 sm:p-5 shadow-xl flex flex-col justify-between">
+            <div>
+              {/* 점수판 상단 헤더 및 점수 초기화 */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-500" />
+                  <h3 className="font-extrabold text-slate-900 text-base sm:text-lg">
+                    모둠 점수판
+                  </h3>
+                </div>
+                <button
+                  onClick={() =>
+                    setTeams((prev) => prev.map((t) => ({ ...t, score: 0 })))
+                  }
+                  className="text-xs font-bold text-slate-500 hover:text-rose-600 px-2.5 py-1 rounded-lg hover:bg-rose-50 transition"
+                >
+                  초기화
+                </button>
+              </div>
+
+              {/* 모둠 수 조절 컨트롤 바 */}
+              <div className="mt-3 mb-3.5 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-600">
+                  모둠 수 설정
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleChangeTeamCount(teams.length - 1)}
+                    disabled={teams.length <= 2}
+                    className="w-7 h-7 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-black flex items-center justify-center disabled:opacity-40 transition"
+                    title="모둠 수 줄이기"
+                    aria-label="모둠 수 줄이기"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="min-w-[3.5rem] text-center font-black text-sm text-emerald-700">
+                    {teams.length}모둠
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleChangeTeamCount(teams.length + 1)}
+                    disabled={teams.length >= 12}
+                    className="w-7 h-7 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-black flex items-center justify-center disabled:opacity-40 transition"
+                    title="모둠 수 늘리기"
+                    aria-label="모둠 수 늘리기"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 세로 모둠 리스트 */}
+              <div className="space-y-2 max-h-[26rem] lg:max-h-[30rem] overflow-y-auto pr-0.5">
+                {teams.map((team) => {
+                  const isLeader = maxScore > 0 && team.score === maxScore;
+                  return (
+                    <div
+                      key={team.id}
+                      className={`rounded-2xl px-3.5 py-2.5 border-2 flex items-center justify-between gap-2 transition ${
+                        isLeader
+                          ? "bg-amber-50/90 border-amber-400 shadow-sm"
+                          : "bg-slate-50/80 border-slate-200"
+                      }`}
+                    >
+                      {/* 모둠 이름 */}
+                      <div className="flex items-center gap-1.5 font-extrabold text-sm sm:text-base text-slate-800 shrink-0">
+                        {isLeader ? (
+                          <span className="text-base leading-none">👑</span>
+                        ) : (
+                          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        )}
+                        <span>{team.name}</span>
+                      </div>
+
+                      {/* 점수 및 가감 버튼 */}
+                      <div className="flex items-center gap-2">
+                        <div className="text-xl sm:text-2xl font-black text-slate-900 min-w-[3.5rem] text-right">
+                          {team.score}
+                          <span className="text-xs font-bold text-slate-500 ml-0.5">
+                            점
                           </span>
                         </div>
-                      ) : (
-                        /* 기본 상태: 오직 초성만 깔끔하게 표시 */
-                        <span
-                          className={`${choseongFontClass} font-black text-indigo-950 leading-none`}
-                        >
-                          {ch.choseong}
-                        </span>
-                      )}
-                    </button>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => updateTeamScore(team.id, -10)}
+                            className="w-8 h-8 rounded-xl bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 font-bold text-xs flex items-center justify-center transition"
+                            aria-label={`${team.name} 10점 감점`}
+                            title="-10점"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateTeamScore(team.id, 10)}
+                            className="px-2.5 h-8 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center justify-center shadow-sm transition"
+                            aria-label={`${team.name} 10점 추가`}
+                            title="+10점"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-0.5" />
+                            10
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
-            ))}
-          </div>
-
-          {/* 정답 공개 시 하단에 전체 문장 한 줄 요약 배너 */}
-          {isAnswerRevealed && (
-            <div className="mt-8 px-8 py-4 rounded-2xl bg-emerald-900 text-white font-black text-2xl sm:text-4xl tracking-wide shadow-lg text-center">
-              {currentWord}
             </div>
-          )}
-        </div>
-
-        {/* 교실 모둠 점수판 (토글 시 표시) */}
-        {showScoreboard && (
-          <div className="w-full mt-5 bg-white/95 backdrop-blur-md rounded-3xl border-2 border-emerald-200 p-4 sm:p-5 shadow-lg">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-amber-500" />
-                <h3 className="font-extrabold text-slate-800 text-base sm:text-lg">
-                  교실 모둠 점수판
-                </h3>
-              </div>
-              <button
-                onClick={() =>
-                  setTeams((prev) => prev.map((t) => ({ ...t, score: 0 })))
-                }
-                className="text-xs font-bold text-slate-500 hover:text-rose-600 px-2.5 py-1 rounded-lg hover:bg-rose-50 transition"
-              >
-                점수 초기화
-              </button>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-              {teams.map((team) => {
-                const isLeader = maxScore > 0 && team.score === maxScore;
-                return (
-                  <div
-                    key={team.id}
-                    className={`rounded-2xl p-3 border-2 flex flex-col items-center justify-between transition ${
-                      isLeader
-                        ? "bg-amber-50 border-amber-400 shadow-sm"
-                        : "bg-slate-50 border-slate-200"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1 font-extrabold text-sm text-slate-700">
-                      {isLeader && <span>👑</span>}
-                      <span>{team.name}</span>
-                    </div>
-                    <div className="text-2xl sm:text-3xl font-black text-slate-900 my-1.5">
-                      {team.score}
-                      <span className="text-xs font-bold text-slate-500 ml-0.5">점</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 w-full">
-                      <button
-                        onClick={() => updateTeamScore(team.id, -10)}
-                        className="flex-1 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 font-bold text-xs flex items-center justify-center"
-                        aria-label={`${team.name} 감점`}
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => updateTeamScore(team.id, 10)}
-                        className="flex-1 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center shadow-sm"
-                        aria-label={`${team.name} 득점`}
-                      >
-                        <Plus className="w-3.5 h-3.5 mr-0.5" />
-                        10
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          </aside>
         )}
       </main>
 
