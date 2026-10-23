@@ -18,7 +18,6 @@ import {
   Trophy,
   RotateCcw,
   ListOrdered,
-  CheckCircle2,
   HelpCircle,
   MousePointerClick,
   Plus,
@@ -248,16 +247,16 @@ export default function QuizPlayView({
     if (delta > 0) soundFX.playHint2();
   };
 
-  // 글자 수에 따른 반응형 카드 크기 계산
+  // 글자 수에 따른 반응형 네모 카드 크기 계산
   const totalCharCount = allChars.length;
   const cardSizeClass =
     totalCharCount <= 4
-      ? "w-32 sm:w-40 md:w-44 min-h-[11rem] sm:min-h-[13.5rem]"
+      ? "w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44"
       : totalCharCount <= 8
-      ? "w-24 sm:w-32 md:w-36 min-h-[9.5rem] sm:min-h-[11.5rem]"
+      ? "w-24 h-24 sm:w-28 sm:h-28 md:w-36 md:h-36"
       : totalCharCount <= 14
-      ? "w-20 sm:w-24 md:w-28 min-h-[8rem] sm:min-h-[9.5rem]"
-      : "w-16 sm:w-20 md:w-24 min-h-[7rem] sm:min-h-[8.2rem]";
+      ? "w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28"
+      : "w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24";
 
   const choseongFontClass =
     totalCharCount <= 4
@@ -267,6 +266,16 @@ export default function QuizPlayView({
       : totalCharCount <= 14
       ? "text-4xl sm:text-5xl md:text-6xl"
       : "text-3xl sm:text-4xl md:text-5xl";
+
+  // 1차 힌트(초성 + 아래 받침)가 한 글자 모양처럼 위아래로 들어갈 때의 글자 크기
+  const stackedFontClass =
+    totalCharCount <= 4
+      ? "text-4xl sm:text-5xl md:text-6xl"
+      : totalCharCount <= 8
+      ? "text-3xl sm:text-4xl md:text-5xl"
+      : totalCharCount <= 14
+      ? "text-2xl sm:text-3xl md:text-4xl"
+      : "text-xl sm:text-2xl md:text-3xl";
 
   const maxScore = Math.max(...teams.map((t) => t.score), 0);
 
@@ -404,7 +413,7 @@ export default function QuizPlayView({
               }`}
             >
               <Layers className="w-4 h-4" />
-              1차 힌트(받침): {showHint1Batchim ? "공개됨" : "가려짐"}
+              1차 힌트(받침): {showHint1Batchim ? "켜짐" : "꺼짐"}
             </span>
 
             <span
@@ -417,32 +426,15 @@ export default function QuizPlayView({
               }`}
             >
               <MousePointerClick className="w-4 h-4 text-sky-600" />
-              2차 힌트(글자 클릭 모음 공개): {revealedCharIndices.size}글자 열림
+              2차 힌트(글자 클릭): {revealedCharIndices.size}글자 열림
             </span>
           </div>
         </div>
 
         {/* 메인 초성 카드 보드 */}
         <div className="w-full bg-white/85 backdrop-blur-md rounded-[2.25rem] border-2 border-indigo-100 shadow-xl p-6 sm:p-10 md:p-14 flex flex-col items-center justify-center min-h-[22rem] sm:min-h-[26rem] relative overflow-hidden">
-          {/* 상단 안내 문구 */}
-          <div className="mb-6 text-center">
-            {isAnswerRevealed ? (
-              <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-emerald-100 text-emerald-900 font-extrabold text-base sm:text-lg border border-emerald-300 shadow-sm">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <span>정답이 공개되었습니다! 다음 문제로 이동해 보세요</span>
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-800 font-bold text-sm sm:text-base border border-indigo-200">
-                <MousePointerClick className="w-4 h-4 text-indigo-600" />
-                <span>
-                  <strong>2차 힌트 팁:</strong> 원하는 글자 카드를 직접 클릭하면 그 글자만 모음까지 모두 공개됩니다!
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* 어절 그룹별 글자 카드 렌더링 */}
-          <div className="flex flex-wrap items-center justify-center gap-x-8 sm:gap-x-12 gap-y-6 w-full py-2">
+          {/* 어절 그룹별 글자 카드 렌더링 (네모칸 안에 부가 설명 없이 글자 요소만 깔끔하게 표시) */}
+          <div className="flex flex-wrap items-center justify-center gap-x-8 sm:gap-x-12 gap-y-6 w-full py-4">
             {wordGroups.map((group) => (
               <div
                 key={group.wordIndex}
@@ -458,14 +450,8 @@ export default function QuizPlayView({
                       type="button"
                       onClick={() => handleToggleCharReveal(ch.index)}
                       disabled={isAnswerRevealed || !ch.isHangul}
-                      title={
-                        isAnswerRevealed
-                          ? ch.original
-                          : revealedCharIndices.has(ch.index)
-                          ? "다시 클릭하면 이 글자를 다시 가립니다"
-                          : "클릭하면 이 글자의 모음까지 모두 공개합니다 (2차 힌트)"
-                      }
-                      className={`${cardSizeClass} rounded-3xl border-4 flex flex-col items-center justify-between p-3 sm:p-4 transition-all duration-200 relative group shadow-md ${
+                      aria-label={`${ch.index + 1}번째 글자`}
+                      className={`${cardSizeClass} rounded-3xl border-4 flex flex-col items-center justify-center p-2 transition-all duration-200 relative shadow-md ${
                         isAnswerRevealed
                           ? "bg-gradient-to-b from-emerald-500 to-teal-600 border-emerald-300 text-white scale-105 shadow-emerald-200/80 shadow-xl"
                           : revealedCharIndices.has(ch.index)
@@ -475,86 +461,34 @@ export default function QuizPlayView({
                           : "bg-white hover:bg-indigo-50/70 border-indigo-200 text-slate-900 hover:-translate-y-1 hover:shadow-lg cursor-pointer"
                       }`}
                     >
-                      {/* 카드 상단 상태 미니 라벨 */}
-                      <div className="w-full flex items-center justify-between text-[11px] sm:text-xs font-extrabold">
-                        <span
-                          className={`px-2 py-0.5 rounded-full ${
-                            isCharRevealed
-                              ? "bg-white/25 text-white"
-                              : "bg-slate-100 text-slate-500"
-                          }`}
-                        >
-                          {ch.index + 1}번째
-                        </span>
-
-                        {isAnswerRevealed ? (
-                          <span className="px-2 py-0.5 rounded-full bg-white/25 text-white">
-                            정답
-                          </span>
-                        ) : revealedCharIndices.has(ch.index) ? (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-300 text-slate-900">
-                            2차 힌트
-                          </span>
-                        ) : (
-                          <span className="opacity-0 group-hover:opacity-100 transition text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                            클릭 공개
-                          </span>
-                        )}
-                      </div>
-
-                      {/* 카드 중앙/상하 메인 텍스트 */}
                       {isCharRevealed ? (
                         /* 정답 공개 또는 2차 힌트(선택한 글자 모음까지 전체 공개) */
-                        <div className="flex-1 flex flex-col items-center justify-center my-1">
-                          <span className={`${choseongFontClass} font-black leading-none tracking-tight drop-shadow-sm`}>
-                            {ch.original}
+                        <span
+                          className={`${choseongFontClass} font-black leading-none tracking-tight drop-shadow-sm`}
+                        >
+                          {ch.original}
+                        </span>
+                      ) : showHint1Batchim ? (
+                        /* 1차 힌트: 부가 설명 없이 실제 글자 모양처럼 위에는 초성, 아래에는 받침 배치 */
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 sm:gap-1">
+                          <span
+                            className={`${stackedFontClass} font-black text-indigo-950 leading-none`}
+                          >
+                            {ch.choseong}
+                          </span>
+                          <span
+                            className={`${stackedFontClass} font-black text-amber-600 leading-none min-h-[1em] flex items-center justify-center`}
+                          >
+                            {ch.hasBatchim ? ch.jongseong : ""}
                           </span>
                         </div>
-                      ) : showHint1Batchim ? (
-                        /* 1차 힌트: 위쪽은 초성, 아래쪽은 받침 상하 배치 */
-                        <div className="flex-1 w-full flex flex-col items-center justify-between my-1 gap-1.5">
-                          <div className="flex-1 flex flex-col items-center justify-center">
-                            <span className="text-[11px] font-bold text-indigo-500 mb-0.5">
-                              초성
-                            </span>
-                            <span
-                              className={`${choseongFontClass} font-black text-indigo-950 leading-none`}
-                            >
-                              {ch.choseong}
-                            </span>
-                          </div>
-
-                          <div className="w-full border-t-2 border-dashed border-amber-200 pt-1.5 flex flex-col items-center justify-center bg-amber-50/90 rounded-2xl py-1.5 px-2">
-                            <span className="text-[10px] sm:text-xs font-bold text-amber-700">
-                              받침(1차 힌트)
-                            </span>
-                            {ch.hasBatchim ? (
-                              <span className="text-2xl sm:text-3xl md:text-4xl font-black text-amber-900 leading-tight">
-                                {ch.jongseong}
-                              </span>
-                            ) : (
-                              <span className="text-xs sm:text-sm font-extrabold text-slate-400 py-1">
-                                받침 없음 (-)
-                              </span>
-                            )}
-                          </div>
-                        </div>
                       ) : (
-                        /* 기본 상태: 초성만 표시 */
-                        <div className="flex-1 w-full flex flex-col items-center justify-between my-1">
-                          <div className="flex-1 flex items-center justify-center">
-                            <span
-                              className={`${choseongFontClass} font-black text-indigo-950 leading-none`}
-                            >
-                              {ch.choseong}
-                            </span>
-                          </div>
-                          <div className="w-full pt-1.5 border-t border-slate-100 flex items-center justify-center">
-                            <span className="text-xs font-bold text-slate-400 group-hover:text-indigo-600 transition">
-                              클릭 시 글자 공개
-                            </span>
-                          </div>
-                        </div>
+                        /* 기본 상태: 오직 초성만 깔끔하게 표시 */
+                        <span
+                          className={`${choseongFontClass} font-black text-indigo-950 leading-none`}
+                        >
+                          {ch.choseong}
+                        </span>
                       )}
                     </button>
                   );
